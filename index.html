@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Block Focus</title>
+  <meta name="viewport" content="initial-scale=1.0">
+  <meta charset="utf-8">
+  <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.0.1/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.0.1/mapbox-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/tachyons@4.12.0/css/tachyons.min.css" />
+</head>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    position: relative;
+  }
+
+  #tools {
+    bottom: 5px;
+    font-size: 3em;
+    color: #fff;
+  }
+</style>
+
+<body>
+  <div class="flex flex-column vh-100">
+    <div id="map" class="flex flex-grow-1 w-100"></div>
+    <!-- top left box: block id w/ metadata -->
+    <footer class="flex w-100 absolute bottom-1">
+      <div id="tools" class="mt0 center">
+        <span>
+          <a id="osm" href="https://www.openstreetmap.org/edit" target="_blank"
+            class="link white hover-orange">OpenStreetMap</a>
+          /
+          <a id="rapid" href="https://mapwith.ai/rapid" target="_blank" class="link white hover-orange">RapiD</a>
+        </span>
+      </div>
+    </footer>
+  </div>
+</body>
+<script>
+
+  mapboxgl.accessToken = '<<MAPBOX_ACCESS_TOKEN>>';
+
+  var map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/satellite-v9',
+    center: [-122.32971357348707, 47.60461045929662],
+    zoom: 14
+  });
+
+  /** todo
+  
+  features:
+  * add title
+  
+  process:
+  * on page load, query api for random block geojson
+  * center page to coordinate
+  * create and apply mask layer
+  * change tool urls to be center on coordinate
+  * populate text block w/ property data
+
+  bugs:
+  * resize tool font size by media?
+  * create mapbox sat layer w/ no labels
+  
+  **/
+
+  let b;
+  let url = 'https://raw.githubusercontent.com/seattleio/seattle-boundaries-data/master/data/census-tracts.geojson';
+  let request = new XMLHttpRequest();
+  request.open('GET', url, true);
+  request.onload = function () {
+    if (this.status >= 200 && this.status < 400) {
+      let geojson = JSON.parse(this.response);
+      let idx = getRandomInt(geojson.features.length - 1);
+      b = geojson.features[idx]
+
+      let center = turf.center(b).geometry.coordinates;
+
+      map.on('load', function () {
+        expandLogoAttribution();
+        updateLinks();
+        addMask(b);
+        map.flyTo({
+          center: center
+        });
+      });
+    }
+  };
+  request.send();
+
+
+
+  ///////////////////
+  // logo/attribution
+  // notes * map init defaults to compact logo/attrib for some reason
+  //       * we remove the compact css classes to expand full text
+  //       * needs to be done on resize events since it keeps resetting
+
+  map.on('resize', e => {
+    expandLogoAttribution();
+  });
+
+  map.on('move', e => {
+    updateLinks();
+  });
+
+  function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
+  }
+
+  function addMask(b) {
+
+    let f;
+    try {
+      f = turf.polygon(b.geometry.coordinates)
+    } catch (error) {
+      f = turf.multiPolygon(b.geometry.coordinates)
+    }
+
+    var mask = turf.mask(f);
+
+    map.addLayer({
+      'id': 'mask',
+      'type': 'fill',
+      'source': {
+        'type': 'geojson',
+        'data': mask
+      },
+      'layout': {},
+      'paint': {
+        'fill-color': '#0d0d0d',
+        'fill-opacity': 0.9
+      }
+    });
+  }
+
+  function updateLinks() {
+    let zoom = Math.round(map.getZoom());
+    let center = map.getCenter();
+    let urlOSM = `https://www.openstreetmap.org/edit?editor=id#map=${zoom}/${center.lat}/${center.lng}`;
+    document.getElementById("osm").href = urlOSM;
+
+    let urlRapiD = `https://mapwith.ai/rapid#map=${zoom}/${center.lat}/${center.lng}`;
+    document.getElementById("rapid").href = urlRapiD;
+  }
+
+  function expandLogoAttribution() {
+    document.getElementsByClassName("mapboxgl-ctrl-logo")[0].classList.remove('mapboxgl-compact');
+    document.getElementsByClassName("mapboxgl-ctrl-attrib")[0].classList.remove('mapboxgl-compact');
+  }
+
+</script>
+</body>
+
+</html>
