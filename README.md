@@ -1,6 +1,6 @@
-# map-blockfocus
+# map-censusfocus
 
-![](images/censusfocus.png)
+![](images/tractfocus.png)
 
 GEOID: [53033006600](https://datacommons.org/place/geoId/53033006600)
 
